@@ -1,0 +1,4 @@
+{
+    "supportedCountries": ["US", "CA"],
+    "mandatoryAffixes": [ "AKSA" ]
+}
