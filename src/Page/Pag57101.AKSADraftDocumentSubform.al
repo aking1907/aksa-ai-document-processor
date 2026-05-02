@@ -56,6 +56,10 @@ page 57101 "AKSA Draft Document Subform"
                 {
                     ToolTip = 'Specifies the value of the Quantity field.', Comment = '%';
                 }
+                field(Reviewed; Rec.Reviewed)
+                {
+                    ToolTip = 'Specifies that the user has reviewed and accepted this AI-suggested line.';
+                }
             }
         }
     }

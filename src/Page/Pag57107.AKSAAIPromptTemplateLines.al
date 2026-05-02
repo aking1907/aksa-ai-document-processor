@@ -41,7 +41,7 @@ page 57107 "AKSA AI Prompt Template Lines"
                     begin
                         AKSAAITextEditor.SetText(Rec."AI Prompt");
                         if AKSAAITextEditor.RunModal() = Action::OK then
-                            Rec."AI Prompt" := AKSAAITextEditor.GetText();
+                            Rec."AI Prompt" := CopyStr(AKSAAITextEditor.GetText(), 1, MaxStrLen(Rec."AI Prompt"));
                     end;
                 }
             }

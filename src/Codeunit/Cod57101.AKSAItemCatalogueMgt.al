@@ -1,189 +1,126 @@
 codeunit 57101 "AKSA Item Catalogue Mgt."
 {
+    procedure GetItemCount(): Integer
+    var
+        Item: Record Item;
+    begin
+        exit(Item.Count());
+    end;
+
     procedure GetItemCatalogue(): Text
     var
         Item: Record Item;
-        Base64Convert: Codeunit "Base64 Convert";
-        JsonObject: JsonObject;
-        JsonArray: JsonArray;
-        DscvJsonArray: JsonArray;
-        DataObject: JsonObject;
-        TextCatalogue: Text;
-        Baase64Text: Text;
-        i: Integer;
     begin
-        if Item.FindSet() then
-            repeat
-                i += 1;
-                Item.CalcFields(Inventory);
-                Clear(DataObject);
-                DataObject.Add('@search.action', 'upload');
-                DataObject.Add('no', Item."No.");
-                DataObject.Add('dsc', DelChr(Item.Description.Trim(), '=', '"'));
-
-                // clear(DscvJsonArray);
-                // DscvJsonArray.Add(DataObject);
-                // DscvJsonArray.WriteTo(TextCatalogue);
-
-                clear(DscvJsonArray);
-                TextCatalogue := Item.AKSAGetObjectEmbeddingData();
-
-                if TextCatalogue = '' then
-                    continue;
-
-                DscvJsonArray.ReadFrom(TextCatalogue);
-                DataObject.Add('dsc_v', DscvJsonArray);
-                // DataObject.Add('uom', Item."Base Unit of Measure");
-                // DataObject.Add('qty', Item.Inventory);
-
-                JsonArray.Add(DataObject);
-            until (Item.Next() = 0) or (i = 100);
-
-        // JsonObject.Add('catalogname', 'item');
-        JsonObject.Add('value', JsonArray);
-
-        JsonObject.WriteTo(TextCatalogue);
-        TextCatalogue := TextCatalogue.Replace('"', '''');
-        // Baase64Text := Base64Convert.ToBase64(TextCatalogue);
-        exit(TextCatalogue);
-        // Message(TextCatalogue);
+        exit(BuildPromptCatalogue(Item, 0, 0));
     end;
 
     procedure GetPartOfItemCatalogue(IndexNo: Integer): Text
     var
-        Item: Record Item;
         AKSAOpenAISetup: Record "AKSA Open AI Setup";
-        Base64Convert: Codeunit "Base64 Convert";
-        JsonObject: JsonObject;
-        JsonArray: JsonArray;
-        DataObject: JsonObject;
-        TextCatalogue: Text;
-        Baase64Text: Text;
-        i: Integer;
+        Item: Record Item;
         BatchSize: Integer;
     begin
-        AKSAOpenAISetup.Get();
+        AKSAOpenAISetup.GetOrCreate();
+        AKSAOpenAISetup.SetDefaultValues();
+
         BatchSize := AKSAOpenAISetup."Item Catalogue Batch Size";
         if BatchSize = 0 then
-            BatchSize := Item.Count;
+            BatchSize := Item.Count();
 
-
-        if Item.FindSet() then
-            repeat
-                i += 1;
-                Item.CalcFields(Inventory);
-                Clear(DataObject);
-                DataObject.Add('no', Item."No.");
-                DataObject.Add('dsc', DelChr(Item.Description.Trim(), '=', '"'));
-                // DataObject.Add('uom', Item."Base Unit of Measure");
-                // DataObject.Add('qty', Item.Inventory);
-
-                if i >= IndexNo then
-                    JsonArray.Add(DataObject);
-
-            until (Item.Next() = 0) or (i = IndexNo + BatchSize);
-
-        JsonObject.Add('catalogname', 'item');
-        JsonObject.Add('data', JsonArray);
-
-        JsonObject.WriteTo(TextCatalogue);
-        TextCatalogue := TextCatalogue.Replace('"', '''');
-        // Baase64Text := Base64Convert.ToBase64(TextCatalogue);
-        exit(TextCatalogue);
-        // Message(TextCatalogue);
+        exit(BuildPromptCatalogue(Item, IndexNo, BatchSize));
     end;
 
-    procedure TEST_ProcessItemEmbeddingDataResponse(ListOfItems: List of [Text]; ResponseText: Text)
+    procedure GetCatalogueForSearchUpload(): Text
     var
-        AKSAOpenAISetup: Record "AKSA Open AI Setup";
-        JsonObject: JsonObject;
-        JsonArray: JsonArray;
-        DataObject: JsonObject;
-        EmbeddingJsonArray: JsonArray;
         Item: Record Item;
-        No: Text;
-        Embedding: Text;
-        i: Integer;
     begin
-        AKSAOpenAISetup.Get();
-
-        AKSAOpenAISetup.CalcFields("Temp Blob");
-        ResponseText := AKSAOpenAISetup.GetTempBlob();
-        Clear(ListOfItems);
-        ListOfItems.Add('1000');
-        ListOfItems.Add('1001');
-        JsonObject.ReadFrom(ResponseText);
-        JsonArray := JsonObject.GetArray('data');
-
-        for i := 0 to JsonArray.Count() - 1 do begin
-            DataObject := JsonArray.GetObject(i);
-
-            EmbeddingJsonArray := DataObject.GetArray('embedding');
-            Embedding := Format(EmbeddingJsonArray);
-
-            No := '';
-            ListOfItems.Get(i + 1, No);
-            Item.Get(No);
-            Item.AKSASetObjectEmbeddingData(Embedding);
-            Item."AKSA Indexed" := true;
-            Item.Modify();
-        end;
+        exit(BuildSearchUploadPayload(Item));
     end;
 
     procedure UpdateItemEmbedding(var Item: Record Item)
     var
-
-        AKSAOpenAISetup: Record "AKSA Open AI Setup";
-        AKSAOpenAIManagement: Codeunit "AKSA Open AI Management";
-        JsonObject: JsonObject;
-        JsonArray: JsonArray;
-        DataObject: JsonObject;
-        EmbeddingJsonArray: JsonArray;
-        ResponseText: Text;
-        No: Text;
-        Embedding: Text;
-        i: Integer;
-        ListOfItems: List of [Text];
-        RequestBody: Text;
+        AKSAVectorSearchMgt: Codeunit "AKSA Vector Search Mgt.";
     begin
-        AKSAOpenAISetup.Get();
+        AKSAVectorSearchMgt.UpdateItemEmbeddings(Item);
+    end;
 
-        if Item.GetFilters() = '' then
-            Item.SetRange("AKSA Indexed", false);
+    local procedure BuildPromptCatalogue(var Item: Record Item; SkipCount: Integer; MaxCount: Integer): Text
+    var
+        CatalogueObject: JsonObject;
+        ItemArray: JsonArray;
+        CatalogueText: Text;
+        AddedCount: Integer;
+        CurrentIndex: Integer;
+    begin
+        CurrentIndex := 0;
 
         if Item.FindSet() then
             repeat
-                if Item.Description <> '' then begin
-                    ListOfItems.Add(Item."No.");
-                    RequestBody += StrSubstNo(',"%1"', Item.Description);
+                if CurrentIndex >= SkipCount then begin
+                    AddPromptItem(ItemArray, Item);
+                    AddedCount += 1;
                 end;
-            until Item.Next() = 0;
 
-        if ListOfItems.Count() = 0 then
-            exit;
+                CurrentIndex += 1;
+            until (Item.Next() = 0) or ((MaxCount > 0) and (AddedCount >= MaxCount));
 
-        RequestBody := DelChr(RequestBody, '<>', ',');
-        RequestBody := StrSubstNo('{"input":[%1]}', RequestBody);
-        ResponseText := AKSAOpenAIManagement.GetEmbeddingData(RequestBody);
-
-        JsonObject.ReadFrom(ResponseText);
-        JsonArray := JsonObject.GetArray('data');
-
-        for i := 0 to JsonArray.Count() - 1 do begin
-            DataObject := JsonArray.GetObject(i);
-
-            EmbeddingJsonArray := DataObject.GetArray('embedding');
-            Embedding := Format(EmbeddingJsonArray);
-
-            No := '';
-            ListOfItems.Get(i + 1, No);
-            Item.Get(No);
-            Item.AKSASetObjectEmbeddingData(Embedding);
-            Item."AKSA Indexed" := true;
-            Item.Modify();
-        end;
+        CatalogueObject.Add('catalogname', 'item');
+        CatalogueObject.Add('data', ItemArray);
+        CatalogueObject.WriteTo(CatalogueText);
+        exit(CatalogueText);
     end;
 
+    local procedure BuildSearchUploadPayload(var Item: Record Item): Text
+    var
+        PayloadObject: JsonObject;
+        ItemArray: JsonArray;
+        PayloadText: Text;
+    begin
+        if Item.FindSet() then
+            repeat
+                AddSearchUploadItem(ItemArray, Item);
+            until Item.Next() = 0;
 
+        PayloadObject.Add('value', ItemArray);
+        PayloadObject.WriteTo(PayloadText);
+        exit(PayloadText);
+    end;
 
+    local procedure AddPromptItem(var ItemArray: JsonArray; var Item: Record Item)
+    var
+        ItemObject: JsonObject;
+    begin
+        Item.CalcFields(Inventory);
+
+        ItemObject.Add('no', Item."No.");
+        ItemObject.Add('dsc', CleanText(Item.Description));
+        ItemObject.Add('uom', Item."Base Unit of Measure");
+        ItemObject.Add('inventory', Item.Inventory);
+        ItemArray.Add(ItemObject);
+    end;
+
+    local procedure AddSearchUploadItem(var ItemArray: JsonArray; var Item: Record Item)
+    var
+        EmbeddingArray: JsonArray;
+        ItemObject: JsonObject;
+        EmbeddingText: Text;
+    begin
+        ItemObject.Add('@search.action', 'upload');
+        ItemObject.Add('no', Item."No.");
+        ItemObject.Add('dsc', CleanText(Item.Description));
+        ItemObject.Add('uom', Item."Base Unit of Measure");
+
+        EmbeddingText := Item.AKSAGetObjectEmbeddingData();
+        if EmbeddingText <> '' then begin
+            EmbeddingArray.ReadFrom(EmbeddingText);
+            ItemObject.Add('dsc_v', EmbeddingArray);
+        end;
+
+        ItemArray.Add(ItemObject);
+    end;
+
+    local procedure CleanText(InputText: Text): Text
+    begin
+        exit(DelChr(InputText.Trim(), '=', '"'));
+    end;
 }

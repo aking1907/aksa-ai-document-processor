@@ -1,0 +1,46 @@
+permissionset 57100 "AKSA AI DOC PROCESS"
+{
+    Assignable = true;
+    Caption = 'AKSA AI Document Processor';
+
+    Permissions =
+        tabledata "AKSA Draft Document Header" = RIMD,
+        tabledata "AKSA Draft Document Line" = RIMD,
+        tabledata "AKSA Open AI Setup" = RIMD,
+        tabledata "AKSA Integer/Text Map" = RIMD,
+        tabledata "AKSA Free Data" = RIMD,
+        tabledata "AKSA AI Prompt Template Header" = RIMD,
+        tabledata "AKSA AI Prompt Template Line" = RIMD,
+        tabledata "AKSA Open AI Communication Log" = RIMD,
+        tabledata "AKSA Draft Doc. Line Item" = RIMD,
+        table "AKSA Draft Document Header" = X,
+        table "AKSA Draft Document Line" = X,
+        table "AKSA Open AI Setup" = X,
+        table "AKSA Integer/Text Map" = X,
+        table "AKSA Free Data" = X,
+        table "AKSA AI Prompt Template Header" = X,
+        table "AKSA AI Prompt Template Line" = X,
+        table "AKSA Open AI Communication Log" = X,
+        table "AKSA Draft Doc. Line Item" = X,
+        report "AKSA Excel To Json" = X,
+        codeunit "AKSA Open AI Management" = X,
+        codeunit "AKSA Item Catalogue Mgt." = X,
+        codeunit "AKSA AI Document Processor" = X,
+        codeunit "AKSA Azure Doc Intelligence" = X,
+        codeunit "AKSA Vector Search Mgt." = X,
+        codeunit "AKSA Quote Mgt." = X,
+        codeunit "AKSA AI Communication Log Mgt." = X,
+        codeunit "AKSA Default Data Mgt." = X,
+        codeunit "AKSA Install" = X,
+        page "AKSA Draft Document" = X,
+        page "AKSA Draft Document Subform" = X,
+        page "AKSA Open AI Setup" = X,
+        page "AKSA List Of Values" = X,
+        page "AKSA Draft Document List" = X,
+        page "AKSA AI Prompt Templates" = X,
+        page "AKSA AI Prompt Template Card" = X,
+        page "AKSA AI Prompt Template Lines" = X,
+        page "AKSA Draft Doc. Line Items" = X,
+        page "AKSA AI Text Editor" = X,
+        page "AKSA AI Communication Log" = X;
+}
