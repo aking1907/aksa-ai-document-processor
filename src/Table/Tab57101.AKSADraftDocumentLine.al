@@ -26,6 +26,8 @@ table 57101 "AKSA Draft Document Line"
                 Rec.Description := '';
                 if Item.Get(Rec."Item No.") then
                     Rec.Description := Item.Description;
+
+                Rec.Reviewed := false;
             end;
         }
         field(4; Description; Text[100])
@@ -39,6 +41,15 @@ table 57101 "AKSA Draft Document Line"
         field(6; Quantity; Decimal)
         {
             Caption = 'Quantity';
+
+            trigger OnValidate()
+            begin
+                Rec.Reviewed := false;
+            end;
+        }
+        field(7; Reviewed; Boolean)
+        {
+            Caption = 'Reviewed';
         }
     }
     keys
@@ -53,9 +64,33 @@ table 57101 "AKSA Draft Document Line"
     var
         AKSADraftDocLineItem: Record "AKSA Draft Doc. Line Item";
     begin
+        EnsureDraftCanChange();
+
         AKSADraftDocLineItem.SetRange("Document No.", Rec."Document No.");
         AKSADraftDocLineItem.SetRange("Line No.", Rec."Line No.");
         if AKSADraftDocLineItem.FindSet() then
             AKSADraftDocLineItem.DeleteAll();
+    end;
+
+    trigger OnModify()
+    begin
+        EnsureDraftCanChange();
+    end;
+
+    local procedure EnsureDraftCanChange()
+    var
+        AKSADraftDocumentHeader: Record "AKSA Draft Document Header";
+    begin
+        if Rec."Document No." = '' then
+            exit;
+
+        if not AKSADraftDocumentHeader.Get(Rec."Document No.") then
+            exit;
+
+        if AKSADraftDocumentHeader.Status = AKSADraftDocumentHeader.Status::Converted then
+            Error('Converted draft documents cannot be changed.');
+
+        if AKSADraftDocumentHeader.Status = AKSADraftDocumentHeader.Status::Approved then
+            AKSADraftDocumentHeader.MarkAISuggested();
     end;
 }

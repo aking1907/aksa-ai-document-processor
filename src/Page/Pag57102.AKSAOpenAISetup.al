@@ -12,9 +12,9 @@ page 57102 "AKSA Open AI Setup"
     {
         area(Content)
         {
-            group(General)
+            group("AI Model")
             {
-                Caption = 'General';
+                Caption = 'AI Model';
 
                 field("Open AI Model URL"; Rec."Open AI Model URL")
                 {
@@ -41,13 +41,79 @@ page 57102 "AKSA Open AI Setup"
                     ExtendedDatatype = Masked;
                 }
             }
+            group("Document Intelligence")
+            {
+                Caption = 'Document Intelligence';
+
+                field("Document Intelligence URL"; Rec."Document Intelligence URL")
+                {
+                    ToolTip = 'Specifies the Azure AI Document Intelligence endpoint used to extract document data.';
+                }
+                field("Document Intelligence Key"; Rec."Document Intelligence Key")
+                {
+                    ToolTip = 'Specifies the Azure AI Document Intelligence key.';
+                    ExtendedDatatype = Masked;
+                }
+            }
             group("Item Catalogue")
             {
                 Caption = 'Item Catalogue';
 
+                field("Default Prompt Template No."; Rec."Default Prompt Template No.")
+                {
+                    ToolTip = 'Specifies the default AI prompt template assigned to new draft documents.';
+                }
+                field("Catalogue Size Threshold"; Rec."Catalogue Size Threshold")
+                {
+                    ToolTip = 'Specifies the item count threshold used to switch from full catalogue prompting to vector retrieval.';
+                }
                 field("Item Catalogue Batch Size"; Rec."Item Catalogue Batch Size")
                 {
                     ToolTip = 'Specifies the value of the Item Catalogue Batch Size field.', Comment = '%';
+                }
+            }
+            group("Vector Search")
+            {
+                Caption = 'Vector Search';
+
+                field("Azure AI Search URL"; Rec."Azure AI Search URL")
+                {
+                    ToolTip = 'Specifies the Azure AI Search service URL.';
+                }
+                field("Azure AI Search Index Name"; Rec."Azure AI Search Index Name")
+                {
+                    ToolTip = 'Specifies the Azure AI Search index that stores item catalogue data.';
+                }
+                field("Azure AI Search Api Version"; Rec."Azure AI Search Api Version")
+                {
+                    ToolTip = 'Specifies the Azure AI Search REST API version.';
+                }
+                field("Azure AI Search Key"; Rec."Azure AI Search Key")
+                {
+                    ToolTip = 'Specifies the Azure AI Search API key.';
+                    ExtendedDatatype = Masked;
+                }
+                field("Vector Result Count"; Rec."Vector Result Count")
+                {
+                    ToolTip = 'Specifies how many catalogue items are retrieved for large catalogue processing.';
+                }
+            }
+            group("Embeddings")
+            {
+                Caption = 'Embeddings';
+
+                field("Open AI Embedding URL"; Rec."Open AI Embedding URL")
+                {
+                    ToolTip = 'Specifies the endpoint used to create item embeddings.';
+                }
+                field("Open AI Embedding Model"; Rec."Open AI Embedding Model")
+                {
+                    ToolTip = 'Specifies the embedding model when the endpoint requires it.';
+                }
+                field("Open AI Embedding Key"; Rec."Open AI Embedding Key")
+                {
+                    ToolTip = 'Specifies the embedding API key. If blank, the Open AI Api-Key is used.';
+                    ExtendedDatatype = Masked;
                 }
             }
             group("Temporary")
@@ -56,6 +122,7 @@ page 57102 "AKSA Open AI Setup"
 
                 field("Temp Blob"; Rec."Temp Blob".HasValue())
                 {
+                    Caption = 'Temp Blob';
                     ToolTip = 'Specifies the value of the Temp Blob field.', Comment = '%';
 
                     trigger OnAssistEdit()
@@ -97,8 +164,8 @@ page 57102 "AKSA Open AI Setup"
 
             action(ItemEmbedding)
             {
-                Caption = 'Call AI Search';
-                ToolTip = 'Call AI Search';
+                Caption = 'Upload Item Catalogue';
+                ToolTip = 'Uploads the item catalogue to Azure AI Search.';
                 Image = Import;
                 Promoted = true;
                 PromotedCategory = Process;
@@ -109,7 +176,7 @@ page 57102 "AKSA Open AI Setup"
                     AKSAOpenAIManagement: Codeunit "AKSA Open AI Management";
                 begin
                     AKSAOpenAIManagement.UploadItemCatalogueIntoAzureAISearch();
-                    Message('gg');
+                    Message('The item catalogue has been uploaded to Azure AI Search.');
                 end;
             }
         }
@@ -128,13 +195,15 @@ page 57102 "AKSA Open AI Setup"
         AKSAListOfValuesPage.SetSourceRecord(AKSAOpenAIModels);
         if AKSAListOfValuesPage.RunModal() = Action::LookupOK then begin
             AKSAListOfValuesPage.GetRecord(AKSAOpenAIModels);
-            Rec."Open AI Model" := AKSAOpenAIModels.Value;
+            Rec."Open AI Model" := CopyStr(AKSAOpenAIModels.Value, 1, MaxStrLen(Rec."Open AI Model"));
         end;
     end;
 
     trigger OnOpenPage()
+    var
+        AKSADefaultDataMgt: Codeunit "AKSA Default Data Mgt.";
     begin
-        if not Rec.FindFirst() then
-            Rec.Insert();
+        Rec.GetOrCreate();
+        AKSADefaultDataMgt.EnsureDefaultPromptTemplate();
     end;
 }

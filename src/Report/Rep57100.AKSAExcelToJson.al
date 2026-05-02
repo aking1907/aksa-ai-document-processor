@@ -63,7 +63,7 @@ report 57100 "AKSA Excel To Json"
                     begin
                         ExcelSheetName := TempExcelBuffer.SelectSheetsNameStream(InStream);
                         if ExcelSheetName = '' then
-                            Error('');
+                            Error('Sheet name is required.');
                     end;
 
                 }
@@ -93,7 +93,6 @@ report 57100 "AKSA Excel To Json"
         ExcelServerFileName: Text;
         FromServerFileName: Text;
         InStream: InStream;
-        ProcessedRecords: Integer;
         UploadExcelMsg: Label 'Import File';
         FileDoesNotExistErr: Label 'File does not exist!';
 
@@ -111,14 +110,6 @@ report 57100 "AKSA Excel To Json"
         TempExcelBuffer.SetRange("Column No.", TempExcelBuffer."Column No.");
         TotalRowsCount := TempExcelBuffer.Count;
         TempExcelBuffer.Reset();
-    end;
-
-    trigger OnPostReport()
-    var
-        Msg: Label 'File name:%1\Sheet name:%2\%3 records have been processed.';
-    begin
-        // Message(Msg, ExcelServerFileName, ExcelSheetName, ProcessedRecords);
-        // Message(GetDataText());
     end;
 
     procedure SetParams(ExcelDescriptionColumnNo: Integer; ExcelQuantityColumnNo: Integer)
@@ -170,6 +161,9 @@ report 57100 "AKSA Excel To Json"
         end;
 
         if not isEmptyLine then begin
+            Clear(AKSAFreeData);
+            AKSAFreeData.Init();
+            NextEntryNo := 1;
             if AKSAFreeData.FindLast() then
                 NextEntryNo := AKSAFreeData."Entry No." + 1;
 
@@ -177,38 +171,41 @@ report 57100 "AKSA Excel To Json"
             AKSAFreeData."Entry No." := NextEntryNo;
             AKSAFreeData.Insert(true);
         end;
-
-        ProcessedRecords += 1;
     end;
 
     local procedure RecordToJson()
     var
         TypeHelper: Codeunit "Type Helper";
-        JsonObject: JsonObject;
-        JsonArray: JsonArray;
         RecordRef: RecordRef;
         FieldRef: FieldRef;
-        i: Integer;
+        ExcelQty: Decimal;
         ExcelDesc: Text[250];
         ExcelQtyText: Text[250];
-        ExcelQty: Decimal;
+        i: Integer;
+        JsonArray: JsonArray;
+        JsonObject: JsonObject;
         Variant: Variant;
     begin
         RecordRef.Open(Database::"AKSA Free Data");
+        if GlobalStartColumnsIndex = 0 then
+            exit;
 
         if (GlobalDescriptionColumnNo > 0) and (GlobalQuantityColumnNo > 0) then begin
             if AKSAFreeData.FindSet() then
                 repeat
+                    Clear(ExcelDesc);
+                    Clear(ExcelQtyText);
+                    Clear(ExcelQty);
                     RecordRef.GetTable(AKSAFreeData);
 
                     for i := GlobalStartColumnsIndex to GlobalEndColumnsIndex do begin
                         FieldRef := RecordRef.Field(i);
 
                         if i = GlobalDescriptionColumnNo then
-                            ExcelDesc := StrSubstNo(FieldRef.Value, 1, 250);
+                            ExcelDesc := CopyStr(Format(FieldRef.Value), 1, MaxStrLen(ExcelDesc));
 
                         if i = GlobalQuantityColumnNo then begin
-                            ExcelQtyText := StrSubstNo(FieldRef.Value, 1, 250);
+                            ExcelQtyText := CopyStr(Format(FieldRef.Value), 1, MaxStrLen(ExcelQtyText));
                             Variant := ExcelQty;
                             TypeHelper.Evaluate(Variant, ExcelQtyText, '', '');
                             ExcelQty := Variant;
@@ -228,7 +225,7 @@ report 57100 "AKSA Excel To Json"
                     RecordRef.GetTable(AKSAFreeData);
                     for i := GlobalStartColumnsIndex to GlobalEndColumnsIndex do begin
                         FieldRef := RecordRef.Field(i);
-                        JsonObject.Add(LowerCase(FieldRef.Name), StrSubstNo(FieldRef.Value, 1, 250));
+                        JsonObject.Add(LowerCase(FieldRef.Name), CopyStr(Format(FieldRef.Value), 1, 250));
                     end;
 
                     JsonArray.Add(JsonObject);
@@ -249,7 +246,6 @@ report 57100 "AKSA Excel To Json"
         TextVar: Text;
     begin
         GlobalJsonObject.WriteTo(TextVar);
-        TextVar := ConvertStr(TextVar, '"', '''');
         exit(TextVar);
     end;
 }

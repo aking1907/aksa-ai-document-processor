@@ -21,6 +21,14 @@ page 57100 "AKSA Draft Document"
                 {
                     ToolTip = 'Specifies the value of the Contact Name field.', Comment = '%';
                 }
+                field("Customer No."; Rec."Customer No.")
+                {
+                    ToolTip = 'Specifies the customer used when creating Sales or Service Quotes.';
+                }
+                field("Vendor No."; Rec."Vendor No.")
+                {
+                    ToolTip = 'Specifies the vendor used when creating Purchase Quotes.';
+                }
                 field(Type; Rec."Type")
                 {
                     ToolTip = 'Specifies the value of the Type field.', Comment = '%';
@@ -28,6 +36,30 @@ page 57100 "AKSA Draft Document"
                 field("AI Prompt Template No."; Rec."AI Prompt Template No.")
                 {
                     ToolTip = 'Specifies the value of the AI Prompt Template No. field.', Comment = '%';
+                }
+                field("Source File Name"; Rec."Source File Name")
+                {
+                    ToolTip = 'Specifies the name of the uploaded source document.';
+                }
+                field("Processing Pattern"; Rec."Processing Pattern")
+                {
+                    ToolTip = 'Specifies whether the document was processed with the medium or large catalogue pattern.';
+                }
+                field(Status; Rec.Status)
+                {
+                    ToolTip = 'Specifies the draft review status.';
+                }
+                field("Approved By"; Rec."Approved By")
+                {
+                    ToolTip = 'Specifies the user that approved the draft document.';
+                }
+                field("Approved At"; Rec."Approved At")
+                {
+                    ToolTip = 'Specifies when the draft document was approved.';
+                }
+                field("Quote No."; Rec."Quote No.")
+                {
+                    ToolTip = 'Specifies the quote created from this draft document.';
                 }
                 field("Excel Desc. Column No."; Rec."Excel Desc. Column No.")
                 {
@@ -39,6 +71,7 @@ page 57100 "AKSA Draft Document"
                 }
                 field("Document Data"; Rec."Document Data".HasValue)
                 {
+                    Caption = 'Document Data';
                     ToolTip = 'Specifies the value of the Document Data field.', Comment = '%';
                     DrillDown = false;
 
@@ -49,6 +82,7 @@ page 57100 "AKSA Draft Document"
                 }
                 field("AI Response"; Rec."AI Response".HasValue)
                 {
+                    Caption = 'AI Response';
                     ToolTip = 'Specifies the value of the AI Response field.', Comment = '%';
                     DrillDown = false;
 
@@ -74,52 +108,24 @@ page 57100 "AKSA Draft Document"
             {
                 ApplicationArea = All;
                 Caption = 'Process with AI';
+                ToolTip = 'Processes the extracted document data with AI and populates suggested draft lines.';
                 Promoted = true;
                 PromotedCategory = Process;
                 Image = Document;
 
                 trigger OnAction()
-                var
-                    OpenAIModels: Record "AKSA Integer/Text Map";
-                    AKOpenAIManagement: Codeunit "AKSA Open AI Management";
-                    AKSAItemCatalogueMgt: Codeunit "AKSA Item Catalogue Mgt.";
-                    AKSAExcelToJsonReport: Report "AKSA Excel To Json";
-                // Prompt1Lbl: Label 'I will send an Item Catalogue in JSON structure. It will be marked as catalogname:item. Then I will send you a data structure in json format. You will need to try to recognize the item from item catalogue by the free text in data structure. If you are able to recognize the item, you will need to return the item no., description, quantity and uom. If you are not able to recognize the item, you will need to return the item no. empty, but description, quantyty and uom try to recognize from free data structure.The result must be in json format.';
-                // Prompt2Lbl: Label 'There is item catalogue: %1';
-                // Prompt3Lbl: Label 'There is free data: %1';
-                // Prompt4Lbl: Label 'Give me results in json format:{\"data\":[{\"dsc\":\"%1\",\"no\":\"%2\",\"qty\":\"%3\",\"uom\":\"%4\"}]} where %1 is item no from item catalogue if recognized, empty if not. %2 is description from free data structure, it should be combination of data with max length 250. %3 is quantity if recognized from free structure or empty if not. %4 is uom if recognized from free structure or empty if not. Total count of records must be equal to count of records from the free data structure.';
                 begin
                     Rec.ProcessWithAI();
-                    // Message(AKOpenAIManagement.SendRequestToOpenAI(Prompt1Lbl));
-                    // Message(AKOpenAIManagement.SendRequestToOpenAI(StrSubstNo(Prompt2Lbl, AKSAItemCatalogueMgt.GetItemCatalogue())));
-
-                    // AKSAExcelToJsonReport.SetParams(Rec."Excel Desc. Column No.", Rec."Excel Quantity Column No.");
-                    // AKSAExcelToJsonReport.RunModal();
-                    // Message(AKOpenAIManagement.SendRequestToOpenAI(StrSubstNo(Prompt3Lbl, AKSAExcelToJsonReport.GetDataText())));
-                    // Message(AKOpenAIManagement.SendRequestToOpenAI(Prompt4Lbl));
+                    CurrPage.Update(false);
+                    Message('AI processing completed. Review the suggested lines before creating a quote.');
                 end;
             }
-
-            // action(InitItemCatalogue)
-            // {
-            //     ApplicationArea = All;
-            //     Caption = 'Init Item Catalogue';
-            //     Promoted = true;
-            //     PromotedCategory = Process;
-            //     Image = Item;
-
-            //     trigger OnAction()
-            //     var
-            //         AKSAItemCatalogueMgt: Codeunit "AKSA Item Catalogue Mgt.";
-            //     begin
-            //         Message(AKSAItemCatalogueMgt.GetItemCatalogue());
-            //     end;
-            // }
 
             action(ImportFromExcel)
             {
                 ApplicationArea = All;
                 Caption = 'Import From Excel';
+                ToolTip = 'Imports customer request lines from an Excel workbook into the draft document data.';
                 Promoted = true;
                 PromotedCategory = Process;
                 Image = Document;
@@ -139,17 +145,72 @@ page 57100 "AKSA Draft Document"
                 end;
             }
 
+            action(ExtractDocumentData)
+            {
+                ApplicationArea = All;
+                Caption = 'Extract Document Data';
+                ToolTip = 'Uploads a PDF or image to Azure AI Document Intelligence and stores the extracted data.';
+                Promoted = true;
+                PromotedCategory = Process;
+                Image = Import;
+
+                trigger OnAction()
+                var
+                    AKSAAzureDocIntelligence: Codeunit "AKSA Azure Doc Intelligence";
+                begin
+                    AKSAAzureDocIntelligence.UploadAndExtractToDraft(Rec);
+                    CurrPage.Update(false);
+                    Message('Document Data has been extracted.');
+                end;
+            }
+
             action(EvaluateToQuote)
             {
                 ApplicationArea = All;
-                Caption = 'Evaluate to Quote';
+                Caption = 'Create Quote';
+                ToolTip = 'Creates the final quote document from an approved draft.';
                 Promoted = true;
                 PromotedCategory = Process;
                 Image = Quote;
 
                 trigger OnAction()
+                var
+                    AKSAQuoteMgt: Codeunit "AKSA Quote Mgt.";
+                    QuoteNo: Code[20];
                 begin
-                    Message('Evaluate to Quote');
+                    QuoteNo := AKSAQuoteMgt.CreateQuoteFromDraft(Rec);
+                    Message('%1 Quote %2 has been created.', Rec.Type, QuoteNo);
+                end;
+            }
+            action(ApproveDraft)
+            {
+                ApplicationArea = All;
+                Caption = 'Approve Draft';
+                ToolTip = 'Approves the reviewed draft document lines for quote creation.';
+                Promoted = true;
+                PromotedCategory = Process;
+                Image = Approve;
+
+                trigger OnAction()
+                begin
+                    Rec.ApproveDraft();
+                    CurrPage.Update(false);
+                    Message('Draft document %1 has been approved for quote creation.', Rec."No.");
+                end;
+            }
+            action(ReopenDraft)
+            {
+                ApplicationArea = All;
+                Caption = 'Reopen Draft';
+                ToolTip = 'Reopens the draft document for additional review or corrections.';
+                Promoted = true;
+                PromotedCategory = Process;
+                Image = ReOpen;
+
+                trigger OnAction()
+                begin
+                    Rec.ReopenDraft();
+                    CurrPage.Update(false);
                 end;
             }
         }
