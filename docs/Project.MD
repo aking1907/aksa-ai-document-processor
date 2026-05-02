@@ -1,76 +1,112 @@
-# Project
+# AKSA AI Document Processor
+## Project Overview
 
 ## Problem Statement
 
-In fast-paced business environments, companies often face significant challenges when generating quotes for customer requests. The process becomes especially cumbersome when a request contains many line items.
+Quote creation is slow and error-prone when customers send requests with many free-text line items. Users must read the incoming document, understand each requested item, search the Business Central item catalogue, choose the best match, and manually build a quote.
 
-For example, a customer may submit a request with around 100 different items. A typical manual workflow includes:
-
-1. **Understanding the request** - Employees read and interpret the item descriptions provided by the customer.
-2. **Searching the database** - Employees manually search the internal product database to find matching items.
-3. **Generating the quote** - Employees compile the matched item information and create a detailed quote for the customer.
-
-This manual process is time-consuming and prone to errors. It can delay quote delivery, reduce quote accuracy, lower customer satisfaction, and create lost business opportunities.
+AKSA AI Document Processor reduces that manual workload while keeping final control with the user.
 
 ## Project Goal
 
-The goal of AKSA AI Document Processor is to streamline quote generation by using AI-assisted document interpretation and automated product matching inside Microsoft Dynamics 365 Business Central.
+The goal is to provide an AI-assisted, human-reviewed document-to-quote workflow inside Microsoft Dynamics 365 Business Central.
 
-The solution is designed to reduce manual work, improve quote accuracy, and help employees focus on higher-value customer tasks.
+The app is designed to:
 
-## Key Solution Components
+- Extract incoming request data from Excel files, PDFs, and images.
+- Match request lines against the item catalogue.
+- Scale from medium catalogues to large catalogues through vector retrieval.
+- Create draft lines that users can review and correct.
+- Require approval before any official quote is created.
+- Create standard Sales, Purchase, and Service Quotes in Business Central.
+- Log external AI, OCR, and search communication for audit and troubleshooting.
 
-| Component | Purpose |
+## Implemented Solution
+
+The current extension implements a draft-document workflow:
+
+1. A user creates an **AKSA Draft Document**.
+2. The user selects quote type and account:
+   - Sales: `Customer No.`
+   - Purchase: `Vendor No.`
+   - Service: `Customer No.`
+3. Source document data is added by:
+   - **Import From Excel**, or
+   - **Extract Document Data** through Azure AI Document Intelligence.
+4. The user selects **Process with AI**.
+5. The app builds a prompt from the active AI prompt template.
+6. The app chooses the catalogue pattern:
+   - Full item catalogue for medium catalogues.
+   - Azure AI Search vector retrieval for large catalogues.
+7. The AI response is parsed into draft lines and suggested item candidates.
+8. The user reviews each line, selects or corrects the item, confirms quantity, and marks the line as reviewed.
+9. The user approves the draft.
+10. The user creates a standard Business Central quote.
+
+## Key Components
+
+| Component | Current behavior |
 | --- | --- |
-| **Natural Language Processing (NLP)** | Interpret customer item descriptions and categorize requests for easier matching. |
-| **Contextual Analysis** | Understand the context and specifics of each requested item so it can be matched more accurately. |
-| **Business Central Integration** | Search the company's ERP product database for matching items. |
-| **Real-Time Product Data** | Use up-to-date product information from Business Central to improve quote accuracy. |
-| **Machine Learning (ML)** | Predict the best item matches based on historical data, user selections, and customer preferences. |
-| **Feedback Loops** | Improve matching accuracy over time by learning from user corrections and decisions. |
-| **User-Friendly Interface** | Guide employees through the quoting process with minimal training. |
-| **Quote Customization** | Allow users to review, adjust, and finalize quotes before they are sent to customers. |
+| Draft document | Stores source data, AI response, line suggestions, review status, account selection, and created quote number. |
+| Azure AI Document Intelligence | Extracts document data from uploaded PDFs and images, including asynchronous polling. |
+| AI prompt processing | Sends composed prompts to an OpenAI-compatible chat completion endpoint. |
+| Medium catalogue processing | Sends the full Business Central item catalogue in the prompt. |
+| Large catalogue processing | Uses embeddings and Azure AI Search vector queries to retrieve relevant item candidates. |
+| Human review | Requires every line to be reviewed before approval. |
+| Quote creation | Creates Sales, Purchase, or Service Quotes only from approved drafts. |
+| Communication log | Stores request and response bodies and HTTP status codes for AI, OCR, and search integrations. |
+| Install/default data | Creates setup defaults and a default prompt template. |
+| Permissions | Provides the assignable `AKSA AI DOC PROCESS` permission set. |
 
-## Proposed Solution
+## Business Value
 
-AKSA AI Document Processor is built on Microsoft Dynamics 365 Business Central and integrates AI technologies to help users automatically generate quotes using product catalogue data from their ERP system.
+- Reduces time spent reading and matching request lines.
+- Improves consistency by using current Business Central item data.
+- Keeps official quote generation inside Business Central.
+- Preserves user control through explicit review and approval.
+- Supports larger item catalogues without sending the full catalogue to the AI model.
+- Provides auditability for external service communication.
 
-The application processes incoming customer request data, identifies likely product matches, and creates a draft quote document that users can review and adjust.
+## Current Functional Scope
 
-## Workflow Process Plan
+Implemented:
 
-### 1. Customer Request Received
+- Excel request import.
+- PDF/image extraction through Azure AI Document Intelligence.
+- Prompt template based AI processing.
+- Medium and large catalogue processing patterns.
+- Item embedding storage and Azure AI Search catalogue upload.
+- Suggested item candidates per draft line.
+- Review and approval status workflow.
+- Sales, Purchase, and Service Quote creation.
+- Default setup and prompt template seeding.
+- Communication log page.
+- Permission set.
 
-- **Input method:** The customer submits a request by email, web form, or directly through a sales representative.
-- **Data captured:** The request includes item descriptions, quantities, and any specific requirements.
+Out of scope for the current implementation:
 
-### 2. Request Entry
+- Automatic account identification from source document content.
+- Automatic quote release, posting, or sending.
+- Background processing through Job Queue.
+- Managed Identity or Azure Key Vault secret retrieval.
+- Automated regression test suite.
+- Full learning loop from historical user corrections.
 
-- **User interface:** A sales representative or system user enters the customer request into the application.
-- **Data validation:** The system confirms that required information is captured and correctly formatted.
+## Operational Dependencies
 
-### 3. Natural Language Processing
+The following services must be configured before all features can run:
 
-- **Request analysis:** NLP algorithms analyze and interpret item descriptions and requirements.
-- **Categorization:** Items are categorized based on the analysis to support accurate matching.
+- OpenAI-compatible chat completion endpoint.
+- OpenAI-compatible embedding endpoint.
+- Azure AI Document Intelligence analyze endpoint.
+- Azure AI Search service and index.
+- Business Central item catalogue.
+- Item embeddings uploaded to Azure AI Search for large catalogue processing.
 
-### 4. Data Retrieval From Business Central
+## Build Status
 
-- **Product search:** The system searches the Business Central product database for matching products based on the analyzed request.
-- **Real-time data:** The latest product information is retrieved from the ERP system.
+The project builds locally with the Business Central AL compiler and checked-in symbol packages. The generated app package is written to:
 
-### 5. Machine Learning Matching
-
-- **Predictive matching:** ML models predict the best matches for requested items based on historical data and customer preferences.
-- **Accuracy check:** Matches are validated to confirm that they meet the customer's requirements.
-
-### 6. Quote Compilation
-
-- **Quote generation:** The system compiles matched products into a draft document.
-- **Customization:** The sales representative reviews and adjusts the quote as needed.
-
-### 7. Follow-Up
-
-- **Customer feedback:** The sales representative follows up with the customer to gather feedback and answer questions.
-- **Adjustments:** Any necessary quote adjustments are made based on customer feedback.
-
+```text
+.snapshots\AKSA_AI_Document_Processor_compile.app
+```

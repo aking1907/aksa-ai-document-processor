@@ -35,7 +35,7 @@ The goal is to ensure high code quality, maintainability, consistency with Busin
 
 ## 4. Architecture & Design Principles
 
-- Follow the two-pattern architecture defined in `ARCHITECTURE.md` (Medium vs Large catalogue)
+- Follow the two-pattern architecture defined in `docs/Architecture.MD` (Medium vs Large catalogue)
 - Use **RAG (Retrieval-Augmented Generation)** pattern for large catalogues
 - Keep business logic inside Business Central as much as possible
 - Treat AI suggestions as **recommendations** only — always include human review step
